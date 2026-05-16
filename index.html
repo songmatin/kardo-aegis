@@ -377,13 +377,56 @@ html, body {
 </div>
 
 <script>
-const CAMS = [
-  { name:'國道1號 南向 68K', typeLabel:'固定測速', lat:25.042, lng:121.535, limit:100, type:'fixed' },
-  { name:'建國高架 北向',     typeLabel:'區間測速', lat:25.049, lng:121.541, limit:60,  type:'section', sectionLen:3.2 },
-  { name:'忠孝東路 四段口',   typeLabel:'闖紅燈',   lat:25.041, lng:121.558, limit:50,  type:'redlight' },
-  { name:'中山高 南向 22K',   typeLabel:'固定測速', lat:25.055, lng:121.520, limit:100, type:'fixed' },
-  { name:'復興北路口',         typeLabel:'移動式',   lat:25.044, lng:121.548, limit:50,  type:'mobile' },
-];
+// ── 照相點資料：啟動時從政府開放資料抓取 ──
+let CAMS = [];
+
+async function loadCameras() {
+  const GOV_URL = 'https://opdadm.moi.gov.tw/api/v1/no-auth/resource/api/dataset/EA5E6FCD-B82D-43B7-A5CF-E9893253187E/resource/E28FC639-4996-443D-BFDD-701E4F5992C5/download';
+
+  try {
+    const res = await fetch(GOV_URL);
+    const text = await res.text();
+
+    // CSV format: CityName,RegionName,Address,DeptNm,BranchNm,Longitude,Latitude,direct,limit
+    const lines = text.trim().split('\n');
+    const header = lines[0].split(',');
+    const lngIdx = header.findIndex(h => h.includes('Longitude') || h.includes('longitude') || h.includes('經度'));
+    const latIdx = header.findIndex(h => h.includes('Latitude')  || h.includes('latitude')  || h.includes('緯度'));
+    const limIdx = header.findIndex(h => h.includes('limit')     || h.includes('速限'));
+    const adrIdx = header.findIndex(h => h.includes('Address')   || h.includes('設置地址'));
+    const dirIdx = header.findIndex(h => h.includes('direct')    || h.includes('拍攝方向'));
+
+    CAMS = lines.slice(1).map(line => {
+      const cols = line.split(',');
+      const lng = parseFloat(cols[lngIdx]);
+      const lat = parseFloat(cols[latIdx]);
+      const lim = parseInt(cols[limIdx]) || 60;
+      const name = cols[adrIdx] || '測速照相';
+      return { name, typeLabel:'固定測速', lat, lng, limit:lim, type:'fixed' };
+    }).filter(c => !isNaN(c.lat) && !isNaN(c.lng) && c.lat > 20 && c.lat < 27);
+
+    console.log(`載入 ${CAMS.length} 個照相點`);
+    document.getElementById('gpsLbl').textContent = `GPS·${CAMS.length}站`;
+  } catch(e) {
+    console.warn('無法載入政府資料，使用備用資料', e);
+    useFallbackCams();
+  }
+}
+
+function useFallbackCams() {
+  // 國道1號主要固定測速點（實際座標）
+  CAMS = [
+    { name:'國1 北向 板橋', typeLabel:'固定測速', lat:25.0129, lng:121.4628, limit:100, type:'fixed' },
+    { name:'國1 南向 五股', typeLabel:'固定測速', lat:25.0721, lng:121.4412, limit:100, type:'fixed' },
+    { name:'國1 北向 桃園', typeLabel:'固定測速', lat:24.9935, lng:121.3014, limit:110, type:'fixed' },
+    { name:'國3 北向 新店', typeLabel:'固定測速', lat:24.9674, lng:121.5371, limit:100, type:'fixed' },
+    { name:'國1 南向 中壢', typeLabel:'固定測速', lat:24.9542, lng:121.2247, limit:110, type:'fixed' },
+    { name:'國1 北向 台中', typeLabel:'固定測速', lat:24.1477, lng:120.6736, limit:110, type:'fixed' },
+    { name:'國3 南向 霧峰', typeLabel:'區間測速', lat:24.0623, lng:120.6891, limit:100, type:'section', sectionLen:4.5 },
+    { name:'國1 南向 台南', typeLabel:'固定測速', lat:22.9998, lng:120.2270, limit:110, type:'fixed' },
+    { name:'國1 北向 高雄', typeLabel:'固定測速', lat:22.6398, lng:120.3014, limit:100, type:'fixed' },
+  ];
+}
 const ETC_RATE = 1.3;
 const S = {
   speed:0, gps:false, lat:25.046, lng:121.537,
@@ -580,7 +623,8 @@ window.addEventListener('resize', applyOrientation);
 screen.orientation && screen.orientation.addEventListener('change', applyOrientation);
 window.addEventListener('orientationchange', applyOrientation);
 
-initGPS();
+// ── 啟動 ──
+loadCameras().then(() => initGPS());
 </script>
 </body>
 </html>
