@@ -578,7 +578,9 @@ function render(){
   S.wasOver=over;
   if(near&&near.dist<800&&now-S.lcb>5000){beepCam(Math.round(near.dist));S.lcb=now;}
 
-  if(S.llat!==null&&spd>5){const dm=hav(S.lat,S.lng,S.llat,S.llng);if(dm<500)S.km+=dm/1000;}
+  // ETC：附近有國道照相點（速限≥100）才累積
+  const onHighway = near && near.dist < 5000 && near.limit >= 100;
+  if(S.llat!==null && spd>3 && onHighway){const dm=hav(S.lat,S.lng,S.llat,S.llng);if(dm<500)S.km+=dm/1000;}
   S.llat=S.lat;S.llng=S.lng;
   const km=S.km.toFixed(1),fee=Math.round(S.km*ETC_RATE);
   ['lsKm','ptKm'].forEach(id=>document.getElementById(id).textContent=km);
